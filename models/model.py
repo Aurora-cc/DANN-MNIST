@@ -1,5 +1,5 @@
 import torch.nn as nn
-from functions import ReverseLayerF
+from models.functions import ReverseLayerF
 
 
 class CNNModel(nn.Module):
