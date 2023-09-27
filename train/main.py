@@ -7,20 +7,24 @@ from dataset.data_loader import GetLoader
 from torchvision import datasets
 from torchvision import transforms
 from models.model import CNNModel
+import tensorflow as tf
+# from tensorflow.examples.tutorials.mnist import input_data
 import numpy as np
-from test import test
+from train.test import test
 
-source_dataset_name = 'MNIST'
-target_dataset_name = 'mnist_m'
-source_image_root = os.path.join('..', 'dataset', source_dataset_name)
-target_image_root = os.path.join('..', 'dataset', target_dataset_name)
+source_dataset_name = 'MNIST'  # 训练集&验证集
+target_dataset_name = 'mnist_m'  # 测试集
+source_image_root = os.path.join(r'..\dataset', source_dataset_name)
+target_image_root = os.path.join(r'..\dataset', target_dataset_name)
+# mnist = input_data.read_data_sets(source_image_root, one_hot=True)
+
 model_root = os.path.join('..', 'models')
 cuda = True
-cudnn.benchmark = True
+cudnn.benchmark = True  # 针对NVIDA GPU上深度神经网络操作进行优化的库
 lr = 1e-3
 batch_size = 128
 image_size = 28
-n_epoch = 100
+n_epoch = 10
 
 manual_seed = random.randint(1, 10000)
 random.seed(manual_seed)
@@ -28,10 +32,10 @@ torch.manual_seed(manual_seed)
 
 # load data
 
-img_transform_source = transforms.Compose([
-    transforms.Resize(image_size),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=(0.1307,), std=(0.3081,))
+img_transform_source = transforms.Compose([  # 用于图像数据预处理管道的构建
+    transforms.Resize(image_size), # 调整图像大小
+    transforms.ToTensor(), # 将图像转换成张量
+    transforms.Normalize(mean=(0.1307,), std=(0.3081,)) # 标准化图像
 ])
 
 img_transform_target = transforms.Compose([
@@ -41,21 +45,22 @@ img_transform_target = transforms.Compose([
 ])
 
 dataset_source = datasets.MNIST(
-    root='../dataset',
+    root=r"..\dataset",
     train=True,
     transform=img_transform_source,
     download=True
 )
 
-dataloader_source = torch.utils.data.DataLoader(
-    dataset=dataset_source,
+dataloader_source = torch.utils.data.DataLoader(  # 主要用于将整个数据集分成mini-batch，并逐批次加载到模型中
+    dataset=dataset_source,  # 数据集地址
     batch_size=batch_size,
     shuffle=True,
-    num_workers=8)
+    num_workers=0  # 多线程数据加载（仅限Linux上）
+)
 
 train_list = os.path.join(target_image_root, 'mnist_m_train_labels.txt')
 
-dataset_target = GetLoader(
+dataset_target = GetLoader(  # 获取验证集和验证集标签
     data_root=os.path.join(target_image_root, 'mnist_m_train'),
     data_list=train_list,
     transform=img_transform_target
@@ -65,7 +70,7 @@ dataloader_target = torch.utils.data.DataLoader(
     dataset=dataset_target,
     batch_size=batch_size,
     shuffle=True,
-    num_workers=8)
+    num_workers=0)
 
 # load model
 
@@ -88,7 +93,7 @@ for p in my_net.parameters():
 
 # training
 
-for epoch in xrange(n_epoch):
+for epoch in range(n_epoch):
 
     len_dataloader = min(len(dataloader_source), len(dataloader_target))
     data_source_iter = iter(dataloader_source)
@@ -101,7 +106,7 @@ for epoch in xrange(n_epoch):
         alpha = 2. / (1. + np.exp(-10 * p)) - 1
 
         # training model using source data
-        data_source = data_source_iter.next()
+        data_source = next(data_source_iter)
         s_img, s_label = data_source
 
         my_net.zero_grad()
@@ -127,7 +132,7 @@ for epoch in xrange(n_epoch):
         err_s_domain = loss_domain(domain_output, domain_label)
 
         # training model using target data
-        data_target = data_target_iter.next()
+        data_target = next(data_target_iter)
         t_img, _ = data_target
 
         batch_size = len(t_img)
@@ -142,8 +147,8 @@ for epoch in xrange(n_epoch):
             domain_label = domain_label.cuda()
 
         input_img.resize_as_(t_img).copy_(t_img)
-
-        _, domain_output = my_net(input_data=input_img, alpha=alpha)
+        # input_img = torch.tensor(input_img)
+        class_output, domain_output = my_net(input_data=input_img, alpha=alpha)
         err_t_domain = loss_domain(domain_output, domain_label)
         err = err_t_domain + err_s_domain + err_s_label
         err.backward()
@@ -151,12 +156,12 @@ for epoch in xrange(n_epoch):
 
         i += 1
 
-        print 'epoch: %d, [iter: %d / all %d], err_s_label: %f, err_s_domain: %f, err_t_domain: %f' \
-              % (epoch, i, len_dataloader, err_s_label.cpu().data.numpy(),
-                 err_s_domain.cpu().data.numpy(), err_t_domain.cpu().data.numpy())
+        print('epoch: %d, [iter: %d / all %d], err_s_label: %f, err_s_domain: %f, err_t_domain: %f' \
+               % (epoch, i, len_dataloader, err_s_label.cpu().data.numpy(),
+                  err_s_domain.cpu().data.numpy(), err_t_domain.cpu().data.numpy()))
 
     torch.save(my_net, '{0}/mnist_mnistm_model_epoch_{1}.pth'.format(model_root, epoch))
-    test(source_dataset_name, epoch)
-    test(target_dataset_name, epoch)
+    test(source_dataset_name, epoch)  # 在训练集上计算准确率
+    test(target_dataset_name, epoch)  # 在验证集上计算准确率
 
-print 'done'
+print('done')

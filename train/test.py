@@ -20,6 +20,7 @@ def test(dataset_name, epoch):
 
     """load data"""
 
+
     img_transform_source = transforms.Compose([
         transforms.Resize(image_size),
         transforms.ToTensor(),
@@ -51,7 +52,7 @@ def test(dataset_name, epoch):
         dataset=dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=8
+        num_workers=0
     )
 
     """ training """
@@ -74,7 +75,7 @@ def test(dataset_name, epoch):
     while i < len_dataloader:
 
         # test model using target data
-        data_target = data_target_iter.next()
+        data_target = next(data_target_iter)
         t_img, t_label = data_target
 
         batch_size = len(t_label)
@@ -100,4 +101,4 @@ def test(dataset_name, epoch):
 
     accu = n_correct.data.numpy() * 1.0 / n_total
 
-    print 'epoch: %d, accuracy of the %s dataset: %f' % (epoch, dataset_name, accu)
+    print('epoch: %d, accuracy of the %s dataset: %f' % (epoch, dataset_name, accu))
