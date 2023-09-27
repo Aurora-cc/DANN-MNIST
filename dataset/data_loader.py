@@ -6,13 +6,13 @@ import os
 class GetLoader(data.Dataset):
     def __init__(self, data_root, data_list, transform=None):
         self.root = data_root
-        self.transform = transform
+        self.transform = transform  # 数据变换操作
 
-        f = open(data_list, 'r')
+        f = open(data_list, "r")  # 读取标签
         data_list = f.readlines()
         f.close()
 
-        self.n_data = len(data_list)
+        self.n_data = len(data_list)  # 计算集合大小
 
         self.img_paths = []
         self.img_labels = []
